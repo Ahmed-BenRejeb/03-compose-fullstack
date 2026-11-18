@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Docker Todo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0b2540; color: #fff; display: flex; justify-content: center; padding: 40px 16px; margin: 0; }
+    .card { background: #fff; color: #222; border-radius: 12px; padding: 24px; width: 100%; max-width: 480px; box-shadow: 0 10px 30px #0006; }
+    h1 { margin-top: 0; color: #2496ed; }
+    form { display: flex; gap: 8px; margin-bottom: 16px; }
+    input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; }
+    button { padding: 10px 14px; border: 0; border-radius: 8px; background: #2496ed; color: #fff; cursor: pointer; font-size: 1rem; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #eee; }
+    li span { flex: 1; cursor: pointer; }
+    li.done span { text-decoration: line-through; color: #999; }
+    li button { background: #e5484d; padding: 4px 10px; }
+    footer { margin-top: 16px; font-size: .8rem; color: #888; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🐳 Docker Todo</h1>
+    <form id="form">
+      <input id="title" placeholder="What needs to be done?" autocomplete="off">
+      <button>Add</button>
+    </form>
+    <ul id="list"></ul>
+    <footer id="status">Connecting to backend…</footer>
+  </div>
+  <script>
+    const list = document.getElementById('list');
+    const status = document.getElementById('status');
+
+    async function load() {
+      try {
+        const health = await (await fetch('/api/health')).json();
+        status.textContent = `frontend (nginx) → backend (${health.backend}) → db (postgres) ✅`;
+        const todos = await (await fetch('/api/todos')).json();
+        list.innerHTML = '';
+        for (const t of todos) {
+          const li = document.createElement('li');
+          li.className = t.done ? 'done' : '';
+          const span = document.createElement('span');
+          span.textContent = t.title;
+          span.onclick = async () => { await fetch(`/api/todos/${t.id}`, { method: 'PATCH' }); load(); };
+          const del = document.createElement('button');
+          del.textContent = '✕';
+          del.onclick = async () => { await fetch(`/api/todos/${t.id}`, { method: 'DELETE' }); load(); };
+          li.append(span, del);
+          list.append(li);
+        }
+      } catch (e) {
+        status.textContent = '❌ Backend unreachable – is it running?';
+      }
+    }
+
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('title');
+      if (!input.value.trim()) return;
+      await fetch('/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: input.value })
+      });
+      input.value = '';
+      load();
+    };
+
+    load();
+  </script>
+</body>
+</html>

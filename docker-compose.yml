@@ -1,0 +1,33 @@
+services:
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"              # host:container – the ONLY port open to your browser
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    env_file: .env             # DB credentials
+    environment:
+      DB_HOST: db              # service name = hostname on the compose network
+    depends_on:
+      db:
+        condition: service_healthy   # wait until postgres actually accepts connections
+    restart: on-failure
+
+  db:
+    image: postgres:17-alpine
+    env_file: .env
+    volumes:
+      - db-data:/var/lib/postgresql/data           # data survives container removal
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  db-data:
